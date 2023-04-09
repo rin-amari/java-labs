@@ -7,8 +7,8 @@ public class DryMass {
         this.dryMass = dryMass;
     }
 
-    public static DryMass calculate(Double solutionMass, Double dryPercentage) {
-        Double mass = solutionMass * dryPercentage / 100;
+    public static DryMass calculate(SolutionMass sm, DryPercentage dp) {
+        Double mass = sm.getSolutionMass() * dp.getDryPercentage() / 100;
         DryMass dryMass1 = new DryMass(mass);
         return dryMass1;
     }
