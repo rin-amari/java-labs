@@ -1,5 +1,6 @@
 package com.bsuir.lr.demo.controllers;
 
+import com.bsuir.lr.demo.counter.CounterThread;
 import com.bsuir.lr.demo.models.DryMass;
 import com.bsuir.lr.demo.models.DryPercentage;
 import com.bsuir.lr.demo.models.SolutionMass;
@@ -20,6 +21,9 @@ public class DryMassController {
     @GetMapping("/mass")
     public String dryMass(@RequestParam("solutionMass") Double trySolutionMass, @RequestParam("dryPercentage") Double tryDryPercentage) throws JSONException, IllegalArgumentException {
         logger.info("started processing");
+
+        CounterThread counter = new  CounterThread();
+        counter.start();
 
         SolutionMass solutionMass = new SolutionMass(trySolutionMass);
         logger.info("solutionMass validation");
