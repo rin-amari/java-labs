@@ -33,7 +33,7 @@ public class DryMassController {
             throws JSONException, IllegalArgumentException {
         logger.info("started processing");
 
-        CounterThread counter = new  CounterThread();
+        CounterThread counter = new CounterThread();
         counter.start();
 
         List<Double> dryMassList = new ArrayList<>();
