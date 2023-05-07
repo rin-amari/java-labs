@@ -9,15 +9,11 @@ import org.junit.jupiter.api.Test;
 public class InputTest {
     @Test
     void validateExceptionNegativeSolutionMass() {
-        Assertions.assertThrows(IllegalArgumentException.class, () -> {
-            SolutionMass.validate((double) -1);
-        });
+        Assertions.assertThrows(IllegalArgumentException.class, () -> SolutionMass.validate((double) -1));
     }
     @Test
     void validateExceptionNegativePercentage() {
-        Assertions.assertThrows(IllegalArgumentException.class, () -> {
-            DryPercentage.validate((double) -1);
-        });
+        Assertions.assertThrows(IllegalArgumentException.class, () -> DryPercentage.validate((double) -1));
     }
 
     @Test
@@ -26,7 +22,7 @@ public class InputTest {
         DryPercentage dp = new DryPercentage(50.0);
         DryMass expectedDryMass = new DryMass(50.0);
 
-        DryMass actualDryMass = DryMass.calculate(sm, dp);
+        DryMass actualDryMass = DryMass.calculate(sm.getSolutionMass(), dp.getDryPercentage());
 
         Assertions.assertEquals(expectedDryMass.getDryMass(), actualDryMass.getDryMass());
     }
