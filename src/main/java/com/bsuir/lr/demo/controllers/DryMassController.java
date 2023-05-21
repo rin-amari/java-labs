@@ -21,18 +21,47 @@ import java.util.concurrent.Future;
 
 @RestController
 public class DryMassController {
-    Logger logger = LoggerFactory.getLogger(DryMassController.class);
-    Cache cache = new Cache();
+    private final Logger logger = LoggerFactory.getLogger(DryMassController.class);
+    private final Cache cache = new Cache();
 
     @Autowired
     private DryMassRepository dryMassRepo;
 
-    public void validation(Double sm, Double dp) {
+    private void validate(Double sm, Double dp) {
         logger.info("solutionMass validation");
         Validator.solutionMassValidation(sm);
 
         logger.info("dryPercentage validation");
         Validator.dryPercentageValidation(dp);
+    }
+
+    private Double calculateDryMass(Double solutionMass, Double dryPercentage) {
+        Double dryMass = cache.get(solutionMass + " " + dryPercentage);
+        if (dryMass == null) {
+            logger.info("counted");
+            DryMass dryMassObj = DryMass.calculate(solutionMass, dryPercentage);
+            dryMass = dryMassObj.getDryMass();
+            cache.put(solutionMass + " " + dryPercentage, dryMass);
+        } else {
+            logger.info("got from cache");
+        }
+        return dryMass;
+    }
+
+    private List<Double> processDryMassParams(List<Map<String, Double>> params) {
+        List<Double> dryMassList = new ArrayList<>();
+
+        for (Map<String, Double> param : params) {
+            Double solutionMass = param.get("solutionMass");
+            Double dryPercentage = param.get("dryPercentage");
+
+            validate(solutionMass, dryPercentage);
+
+            Double dryMass = calculateDryMass(solutionMass, dryPercentage);
+            dryMassList.add(dryMass);
+        }
+
+        return dryMassList;
     }
 
     @RequestMapping(value = "/mass",
@@ -47,25 +76,7 @@ public class DryMassController {
         CounterThread counter = new CounterThread();
         counter.start();
 
-        List<Double> dryMassList = new ArrayList<>();
-
-        for (Map<String, Double> param : params) {
-            Double solutionMass = param.get("solutionMass");
-            Double dryPercentage = param.get("dryPercentage");
-
-            validation(solutionMass, dryPercentage);
-
-            Double dryMass = cache.get(solutionMass + " " + dryPercentage);
-            if (dryMass == null) {
-                logger.info("counted");
-                DryMass dryMassObj = DryMass.calculate(solutionMass, dryPercentage);
-                dryMass = dryMassObj.getDryMass();
-                cache.put(solutionMass + " " + dryPercentage, dryMass);
-            } else {
-                logger.info("got from cache");
-            }
-            dryMassList.add(dryMass);
-        }
+        List<Double> dryMassList = processDryMassParams(params);
 
         JSONObject response = new JSONObject();
         response.put("answers", dryMassList);
@@ -87,7 +98,7 @@ public class DryMassController {
             Double solutionMass = param.get("solutionMass");
             Double dryPercentage = param.get("dryPercentage");
 
-            validation(solutionMass, dryPercentage);
+            validate(solutionMass, dryPercentage);
 
             CompletableFuture<Double> future = saveDryMass(solutionMass, dryPercentage);
             saveFutures.add(future);
@@ -105,6 +116,7 @@ public class DryMassController {
         response.put("ok", 0);
         return response.toString();
     }
+
     @Async
     public CompletableFuture<Double> saveDryMass(Double solutionMass, Double dryPercentage) {
         DryMass dryMass = DryMass.calculate(solutionMass, dryPercentage);
@@ -114,11 +126,11 @@ public class DryMassController {
     }
 
     @RequestMapping(value = "/result",
-    method = RequestMethod.GET,
-    produces = "application/json")
+            method = RequestMethod.GET,
+            produces = "application/json")
     public String result(@RequestParam("id") Long id) {
         DryMass dryMass = dryMassRepo.findById(id).orElse(null);
-        if(dryMass == null) {
+        if (dryMass == null) {
             JSONObject response = new JSONObject();
             response.put("null: ", 0);
             return response.toString();
@@ -128,32 +140,13 @@ public class DryMassController {
         return response.toString();
     }
 
-
     @RequestMapping(value = "/bulk",
             method = RequestMethod.POST,
             produces = "application/json")
     public String bulk(@RequestBody List<Map<String, Double>> params) {
         logger.info("bulk started");
 
-        List<Double> answers = new ArrayList<>();
-        for (Map<String, Double> param : params) {
-            Double solutionMass = param.get("solutionMass");
-            Double dryPercentage = param.get("dryPercentage");
-
-            validation(solutionMass, dryPercentage);
-
-            Double dryMass = cache.get(solutionMass + " " + dryPercentage);
-            if (dryMass == null) {
-                logger.info("counted");
-                DryMass dryMassObj = DryMass.calculate(solutionMass, dryPercentage);
-                dryMass = dryMassObj.getDryMass();
-                cache.put(dryPercentage.toString(), dryMass);
-            } else {
-                logger.info("got from cache");
-            }
-
-            answers.add(dryMass);
-        }
+        List<Double> answers = processDryMassParams(params);
 
         JSONObject response = new JSONObject();
         response.put("answers", answers);
@@ -171,6 +164,4 @@ public class DryMassController {
         logger.info("GOOD ENDING!");
         return response.toString();
     }
-
-
 }
