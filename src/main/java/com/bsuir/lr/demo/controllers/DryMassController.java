@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 
 @RestController
 public class DryMassController {
@@ -104,17 +103,19 @@ public class DryMassController {
             saveFutures.add(future);
         }
 
-        for (Future<Double> future : saveFutures) {
-            try {
-                future.get();
-            } catch (Exception e) {
-                logger.error("Error saving dry mass", e);
-            }
-        }
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(saveFutures.toArray(new CompletableFuture[0]));
 
-        JSONObject response = new JSONObject();
-        response.put("ok", 0);
-        return response.toString();
+        try {
+            allFutures.get();
+            JSONObject response = new JSONObject();
+            response.put("ok", 1);
+            return response.toString();
+        } catch (Exception e) {
+            logger.error("Error saving dry mass", e);
+            JSONObject response = new JSONObject();
+            response.put("Error", -1);
+            return response.toString();
+        }
     }
 
     @Async
