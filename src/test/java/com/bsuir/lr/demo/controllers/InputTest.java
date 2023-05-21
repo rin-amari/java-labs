@@ -20,7 +20,7 @@ public class InputTest {
     public void testCalculate() {
         SolutionMass sm = new SolutionMass(100.0);
         DryPercentage dp = new DryPercentage(50.0);
-        DryMass expectedDryMass = new DryMass(50.0);
+        DryMass expectedDryMass = new DryMass(50.0, sm.getSolutionMass(), dp.getDryPercentage());
 
         DryMass actualDryMass = DryMass.calculate(sm.getSolutionMass(), dp.getDryPercentage());
 

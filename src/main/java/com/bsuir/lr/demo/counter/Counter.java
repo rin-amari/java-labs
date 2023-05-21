@@ -6,7 +6,7 @@ public class Counter {
         count++;
     }
 
-    public int getCount() {
+    public static int getCount() {
         return count;
     }
 }
