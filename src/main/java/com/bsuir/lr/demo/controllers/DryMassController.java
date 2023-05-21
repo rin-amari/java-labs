@@ -2,8 +2,6 @@ package com.bsuir.lr.demo.controllers;
 
 import com.bsuir.lr.demo.cache.Cache;
 import com.bsuir.lr.demo.models.DryMass;
-import com.bsuir.lr.demo.models.DryPercentage;
-import com.bsuir.lr.demo.models.SolutionMass;
 import com.bsuir.lr.demo.counter.CounterThread;
 import com.bsuir.lr.demo.repos.DryMassRepository;
 import org.json.JSONException;
@@ -25,8 +23,17 @@ import java.util.concurrent.Future;
 public class DryMassController {
     Logger logger = LoggerFactory.getLogger(DryMassController.class);
     Cache cache = new Cache();
+
     @Autowired
     private DryMassRepository dryMassRepo;
+
+    public void validation(Double sm, Double dp) {
+        logger.info("solutionMass validation");
+        Validator.solutionMassValidation(sm);
+
+        logger.info("dryPercentage validation");
+        Validator.dryPercentageValidation(dp);
+    }
 
     @RequestMapping(value = "/mass",
             method = RequestMethod.GET,
@@ -46,11 +53,7 @@ public class DryMassController {
             Double solutionMass = param.get("solutionMass");
             Double dryPercentage = param.get("dryPercentage");
 
-            logger.info("solutionMass validation");
-            SolutionMass.validate(solutionMass);
-
-            logger.info("dryPercentage validation");
-            DryPercentage.validate(dryPercentage);
+            validation(solutionMass, dryPercentage);
 
             Double dryMass = cache.get(solutionMass + " " + dryPercentage);
             if (dryMass == null) {
@@ -84,11 +87,7 @@ public class DryMassController {
             Double solutionMass = param.get("solutionMass");
             Double dryPercentage = param.get("dryPercentage");
 
-            logger.info("solutionMass validation");
-            SolutionMass.validate(solutionMass);
-
-            logger.info("dryPercentage validation");
-            DryPercentage.validate(dryPercentage);
+            validation(solutionMass, dryPercentage);
 
             CompletableFuture<Double> future = saveDryMass(solutionMass, dryPercentage);
             saveFutures.add(future);
@@ -140,11 +139,8 @@ public class DryMassController {
         for (Map<String, Double> param : params) {
             Double solutionMass = param.get("solutionMass");
             Double dryPercentage = param.get("dryPercentage");
-            logger.info("solutionMass validation");
-            SolutionMass.validate(solutionMass);
 
-            logger.info("dryPercentage validation");
-            DryPercentage.validate(dryPercentage);
+            validation(solutionMass, dryPercentage);
 
             Double dryMass = cache.get(solutionMass + " " + dryPercentage);
             if (dryMass == null) {
