@@ -12,11 +12,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 
 @RestController
 public class DryMassController {
@@ -74,6 +77,9 @@ public class DryMassController {
     public String dbMass(@RequestBody List<Map<String, Double>> params)
             throws JSONException, IllegalArgumentException {
         logger.info("started processing");
+
+        List<CompletableFuture<Double>> saveFutures = new ArrayList<>();
+
         for (Map<String, Double> param : params) {
             Double solutionMass = param.get("solutionMass");
             Double dryPercentage = param.get("dryPercentage");
@@ -84,15 +90,28 @@ public class DryMassController {
             logger.info("dryPercentage validation");
             DryPercentage.validate(dryPercentage);
 
-            DryMass dryMass = DryMass.calculate(solutionMass, dryPercentage);
-            logger.info(solutionMass + " " + dryPercentage + " = " + dryMass.getDryMass());
+            CompletableFuture<Double> future = saveDryMass(solutionMass, dryPercentage);
+            saveFutures.add(future);
+        }
 
-            dryMassRepo.save(dryMass);
+        for (Future<Double> future : saveFutures) {
+            try {
+                future.get();
+            } catch (Exception e) {
+                logger.error("Error saving dry mass", e);
+            }
         }
 
         JSONObject response = new JSONObject();
         response.put("ok", 0);
         return response.toString();
+    }
+    @Async
+    public CompletableFuture<Double> saveDryMass(Double solutionMass, Double dryPercentage) {
+        DryMass dryMass = DryMass.calculate(solutionMass, dryPercentage);
+        logger.info(solutionMass + " " + dryPercentage + " = " + dryMass.getDryMass());
+        dryMassRepo.save(dryMass);
+        return CompletableFuture.completedFuture(dryMass.getDryMass());
     }
 
     @RequestMapping(value = "/result",
