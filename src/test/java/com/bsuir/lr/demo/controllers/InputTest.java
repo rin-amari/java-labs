@@ -1,6 +1,7 @@
 package com.bsuir.lr.demo.controllers;
 
 import com.bsuir.lr.demo.models.DryMass;
+import com.bsuir.lr.demo.service.Validator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

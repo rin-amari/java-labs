@@ -1,153 +1,114 @@
 package com.bsuir.lr.demo.controllers;
 
-import com.bsuir.lr.demo.cache.Cache;
-import com.bsuir.lr.demo.models.DryMass;
 import com.bsuir.lr.demo.counter.CounterThread;
+import com.bsuir.lr.demo.models.DryMass;
 import com.bsuir.lr.demo.repos.DryMassRepository;
+import com.bsuir.lr.demo.service.ServiceM;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 public class DryMassController {
     private final Logger logger = LoggerFactory.getLogger(DryMassController.class);
-    private final Cache cache = new Cache();
 
     @Autowired
     private DryMassRepository dryMassRepo;
 
-    private void validate(Double sm, Double dp) {
-        logger.info("solutionMass validation");
-        Validator.solutionMassValidation(sm);
-
-        logger.info("dryPercentage validation");
-        Validator.dryPercentageValidation(dp);
-    }
-
-    private Double calculateDryMass(Double solutionMass, Double dryPercentage) {
-        Double dryMass = cache.get(solutionMass + " " + dryPercentage);
-        if (dryMass == null) {
-            logger.info("counted");
-            DryMass dryMassObj = DryMass.calculate(solutionMass, dryPercentage);
-            dryMass = dryMassObj.getDryMass();
-            cache.put(solutionMass + " " + dryPercentage, dryMass);
-        } else {
-            logger.info("got from cache");
-        }
-        return dryMass;
-    }
-
-    private List<Double> processDryMassParams(List<Map<String, Double>> params) {
-        List<Double> dryMassList = new ArrayList<>();
-
-        for (Map<String, Double> param : params) {
-            Double solutionMass = param.get("solutionMass");
-            Double dryPercentage = param.get("dryPercentage");
-
-            validate(solutionMass, dryPercentage);
-
-            Double dryMass = calculateDryMass(solutionMass, dryPercentage);
-            dryMassList.add(dryMass);
-        }
-
-        return dryMassList;
-    }
 
     @RequestMapping(value = "/mass",
             method = RequestMethod.GET,
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public String dryMass(@RequestBody List<Map<String, Double>> params)
+    public ResponseEntity<?> dryMass(@RequestBody List<Map<String, Double>> params)
             throws JSONException, IllegalArgumentException {
         logger.info("started processing");
 
         CounterThread counter = new CounterThread();
         counter.start();
 
-        List<Double> dryMassList = processDryMassParams(params);
+        List<Double> dryMassList = ServiceM.processDryMassParams(params);
 
         JSONObject response = new JSONObject();
         response.put("answers", dryMassList);
-        return response.toString();
+        return ResponseEntity.ok(response.toString());
     }
 
-    @RequestMapping(value = "/db_mass",
-            method = RequestMethod.GET,
-            consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    public String dbMass(@RequestBody List<Map<String, Double>> params)
-            throws JSONException, IllegalArgumentException {
+    @RequestMapping(value = "/db_mass" )
+    public ResponseEntity<?> dbMass(@RequestParam("solutionMass") Double solutionMass, @RequestParam("dryPercentage") Double dryPercentage) throws JSONException {
         logger.info("started processing");
 
-        List<CompletableFuture<Double>> saveFutures = new ArrayList<>();
+        ServiceM.validate(solutionMass, dryPercentage);
 
-        for (Map<String, Double> param : params) {
-            Double solutionMass = param.get("solutionMass");
-            Double dryPercentage = param.get("dryPercentage");
+        DryMass dryMass;
+        dryMass = DryMass.calculate(solutionMass, dryPercentage);
 
-            validate(solutionMass, dryPercentage);
-
-            CompletableFuture<Double> future = saveDryMass(solutionMass, dryPercentage);
-            saveFutures.add(future);
-        }
-
-        CompletableFuture<Void> allFutures = CompletableFuture.allOf(saveFutures.toArray(new CompletableFuture[0]));
+        CompletableFuture<CompletableFuture<Double>> future = CompletableFuture.supplyAsync(() ->
+                saveDryMass(solutionMass, dryPercentage)
+        );
 
         try {
-            allFutures.get();
+            future.get();
             JSONObject response = new JSONObject();
-            response.put("ok", 1);
-            return response.toString();
+            response.put("ok: ", 1);
+            //response.put("ok: ", dryMass.getDryMassId());
+            return ResponseEntity.ok(response.toString());
         } catch (Exception e) {
             logger.error("Error saving dry mass", e);
             JSONObject response = new JSONObject();
             response.put("Error", -1);
-            return response.toString();
+            return new ResponseEntity<>("Error:" + e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @Async
     public CompletableFuture<Double> saveDryMass(Double solutionMass, Double dryPercentage) {
-        DryMass dryMass = DryMass.calculate(solutionMass, dryPercentage);
-        logger.info(solutionMass + " " + dryPercentage + " = " + dryMass.getDryMass());
-        dryMassRepo.save(dryMass);
-        return CompletableFuture.completedFuture(dryMass.getDryMass());
+        return CompletableFuture.supplyAsync(() -> {
+            DryMass dryMass = DryMass.calculate(solutionMass, dryPercentage);
+            logger.info(solutionMass + " " + dryPercentage + " = " + dryMass.getDryMass());
+            dryMassRepo.save(dryMass);
+
+            logger.info("id: " + dryMass.getDryMassId().toString());
+
+            return dryMass.getDryMass();
+        }, CompletableFuture.delayedExecutor(20000, TimeUnit.MILLISECONDS));
     }
 
     @RequestMapping(value = "/result",
             method = RequestMethod.GET,
             produces = "application/json")
-    public String result(@RequestParam("id") Long id) {
+    public ResponseEntity<?> result(@RequestParam("id") Long id) {
         DryMass dryMass = dryMassRepo.findById(id).orElse(null);
         if (dryMass == null) {
             JSONObject response = new JSONObject();
             response.put("null: ", 0);
-            return response.toString();
+            return ResponseEntity.ok(response.toString());
         }
         JSONObject response = new JSONObject();
         response.put("result from db: ", dryMass.getDryMass());
-        return response.toString();
+        return ResponseEntity.ok(response.toString());
     }
 
     @RequestMapping(value = "/bulk",
             method = RequestMethod.POST,
             produces = "application/json")
-    public String bulk(@RequestBody List<Map<String, Double>> params) {
+    public ResponseEntity<?> bulk(@RequestBody List<Map<String, Double>> params) {
         logger.info("bulk started");
 
-        List<Double> answers = processDryMassParams(params);
+        List<Double> answers = ServiceM.processDryMassParams(params);
 
         JSONObject response = new JSONObject();
         response.put("answers", answers);
@@ -163,6 +124,6 @@ public class DryMassController {
         response.put("amount", answers.size());
 
         logger.info("GOOD ENDING!");
-        return response.toString();
+        return ResponseEntity.ok(response.toString());
     }
 }

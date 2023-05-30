@@ -1,4 +1,4 @@
-package com.bsuir.lr.demo.controllers;
+package com.bsuir.lr.demo.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

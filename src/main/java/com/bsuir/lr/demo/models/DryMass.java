@@ -2,6 +2,7 @@ package com.bsuir.lr.demo.models;
 
 
 import jakarta.persistence.*;
+import org.springframework.scheduling.annotation.Async;
 
 @Entity
 @Table(name = "chemistrytable")
@@ -28,6 +29,7 @@ public class DryMass {
         dryMass = (double) 0;
     }
 
+    @Async
     public static DryMass calculate(Double sm, Double dp) {
         Double mass = sm * dp / 100;
         return new DryMass(mass, sm, dp);
@@ -35,6 +37,10 @@ public class DryMass {
 
     public Double getDryMass() {
         return dryMass;
+    }
+
+    public Long getDryMassId() {
+        return id;
     }
 
     @Override
